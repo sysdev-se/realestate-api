@@ -69,7 +69,17 @@ class ConsumerListingControllerTests {
 			.bodyJson()
 			.isLenientlyEqualTo("""
 					{"id":"%s","title":"Get me","description":"Desc","price":42.50,
+					 "primaryImgUrl":"https://example.com/a.jpg",
 					 "imgUrls":["https://example.com/a.jpg","https://example.com/b.jpg"]}""".formatted(saved.getId()));
+	}
+
+	@Test
+	void primaryImgUrlIsNullWithoutImages() {
+		Listing saved = this.listings.save(new Listing("No images", null, new BigDecimal("1.00"), List.of()));
+
+		assertThat(this.mvc.get().uri("/api/v1/consumer/listings/{id}", saved.getId()))
+			.bodyJson()
+			.hasPathSatisfying("$.primaryImgUrl", (url) -> url.assertThat().isNull());
 	}
 
 	@Test

@@ -10,21 +10,25 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
+import se.sysdev.realestate.api.image.ImageService;
 import se.sysdev.realestate.api.listing.ListingDtos.CreateListingRequest;
 import se.sysdev.realestate.api.listing.ListingDtos.ListingResponse;
 
 @Service
 public class ListingService {
-
 	static final Set<String> SORTABLE_PROPERTIES = Set.of("id", "title", "price");
-
 	private final ListingRepository listings;
+	private final ImageService imageService;
+	private final TransactionTemplate transaction;
 
-	public ListingService(ListingRepository listings) {
+	public ListingService(ListingRepository listings, ImageService imageService, TransactionTemplate transaction) {
 		this.listings = listings;
+		this.imageService = imageService;
+		this.transaction = transaction;
 	}
 
 	@Transactional(readOnly = true)
@@ -45,7 +49,7 @@ public class ListingService {
 	public ListingResponse get(UUID id) {
 		return this.listings.findById(id)
 			.map(ListingResponse::from)
-			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing " + id + " not found"));
+			.orElseThrow(() -> notFound(id));
 	}
 
 	@Transactional
@@ -53,6 +57,20 @@ public class ListingService {
 		List<String> imgUrls = (request.imgUrls() != null) ? request.imgUrls() : List.of();
 		Listing listing = new Listing(request.title(), request.description(), request.price(), imgUrls);
 		return ListingResponse.from(this.listings.save(listing));
+	}
+
+	public void delete(UUID id) {
+		List<String> imgUrls = this.transaction.execute((status) -> {
+			Listing listing = this.listings.findById(id).orElseThrow(() -> notFound(id));
+			List<String> urls = List.copyOf(listing.getImgUrls());
+			this.listings.delete(listing);
+			return urls;
+		});
+		this.imageService.deleteAll(imgUrls);
+	}
+
+	private static ResponseStatusException notFound(UUID id) {
+		return new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing " + id + " not found");
 	}
 
 }

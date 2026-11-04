@@ -16,11 +16,13 @@ public final class ListingDtos {
 	private ListingDtos() {
 	}
 
-	public record ListingResponse(UUID id, String title, String description, BigDecimal price, List<String> imgUrls) {
+	public record ListingResponse(UUID id, String title, String description, BigDecimal price, String primaryImgUrl,
+			List<String> imgUrls) {
 
 		static ListingResponse from(Listing listing) {
+			List<String> imgUrls = List.copyOf(listing.getImgUrls());
 			return new ListingResponse(listing.getId(), listing.getTitle(), listing.getDescription(),
-					listing.getPrice(), List.copyOf(listing.getImgUrls()));
+					listing.getPrice(), imgUrls.isEmpty() ? null : imgUrls.getFirst(), imgUrls);
 		}
 
 	}

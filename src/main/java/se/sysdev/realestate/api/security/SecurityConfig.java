@@ -53,7 +53,7 @@ public class SecurityConfig {
 	CorsConfigurationSource corsConfigurationSource(@Value("${app.cors.allowed-origins}") List<String> allowedOrigins) {
 		CorsConfiguration cors = new CorsConfiguration();
 		cors.setAllowedOrigins(allowedOrigins);
-		cors.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
+		cors.setAllowedMethods(List.of("GET", "POST", "DELETE", "OPTIONS"));
 		cors.setAllowedHeaders(List.of("Authorization", "Content-Type"));
 		cors.setExposedHeaders(List.of("Location"));
 		cors.setMaxAge(Duration.ofHours(1));

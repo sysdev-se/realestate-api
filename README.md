@@ -41,6 +41,7 @@ curl -si localhost:8080/api/v1/admin/listings -H "Authorization: Bearer $TOKEN" 
 
 | Env var | Default | |
 |---|---|---|
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed to call `/api/**` (CORS). Postman/curl don't use CORS and always work |
 | `ADMIN_PASSWORD` | none | Password of the seeded admin. Unset = no admin user |
 | `ACCESS_TOKEN_SECRET` | `TEMPORARY_ACCESS_TOKEN_SECRET_CHANGE_ME` | HS256 key for access tokens (15 min), ≥ 32 bytes |
 | `REFRESH_TOKEN_SECRET` | `TEMPORARY_REFRESH_TOKEN_SECRET_CHANGE_ME` | HS256 key for refresh tokens (7 days), ≥ 32 bytes, must differ |

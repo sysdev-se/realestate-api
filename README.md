@@ -13,6 +13,38 @@ Requires JDK 25 (`sdk install java 25-graalce` gives you both the JDK and `nativ
 ./mvnw spring-boot:run        # http://localhost:8080/hello
 ```
 
+Data lives in an in-memory H2 database (Spring Data JPA) that is recreated on every start and
+seeded with an admin user (`rikard.virta@sysdev.se` / `HelloWorld@123`) and three sample listings.
+
+## API
+
+| Method | Path | Access |
+|---|---|---|
+| `POST` | `/api/v1/auth/signin` | Public. `{"email","password"}` → `{"accessToken","refreshToken"}` |
+| `POST` | `/api/v1/auth/refresh` | Public. `{"refreshToken"}` → `{"accessToken"}` |
+| `GET` | `/api/v1/consumer/listings` | Public. `?title=` (contains, case-insensitive), `page`, `size` (max 100), `sort=title\|price\|id[,asc\|desc]` |
+| `GET` | `/api/v1/consumer/listings/{id}` | Public |
+| `POST` | `/api/v1/admin/listings` | `Authorization: Bearer <access token>` with role ADMIN |
+
+Errors are returned as problem details (`application/problem+json`).
+
+```bash
+TOKEN=$(curl -s localhost:8080/api/v1/auth/signin -H 'Content-Type: application/json' \
+  -d '{"email":"rikard.virta@sysdev.se","password":"HelloWorld@123"}' | jq -r .accessToken)
+curl -s 'localhost:8080/api/v1/consumer/listings?title=villa&sort=price,desc' | jq
+curl -si localhost:8080/api/v1/admin/listings -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"title":"New","price":1000000,"imgUrls":[]}'
+```
+
+### Configuration
+
+| Env var | Default | |
+|---|---|---|
+| `ACCESS_TOKEN_SECRET` | `TEMPORARY_ACCESS_TOKEN_SECRET_CHANGE_ME` | HS256 key for access tokens (15 min), ≥ 32 bytes |
+| `REFRESH_TOKEN_SECRET` | `TEMPORARY_REFRESH_TOKEN_SECRET_CHANGE_ME` | HS256 key for refresh tokens (7 days), ≥ 32 bytes, must differ |
+
+The defaults are public; set real secrets on Cloud Run before the service holds real data.
+
 Native image as a container (needs Docker, not a local GraalVM):
 
 ```bash

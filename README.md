@@ -10,11 +10,12 @@ Requires JDK 25 (`sdk install java 25-graalce` gives you both the JDK and `nativ
 
 ```bash
 ./mvnw verify                 # tests
-./mvnw spring-boot:run        # http://localhost:8080/hello
+ADMIN_PASSWORD=HelloWorld@123 ./mvnw spring-boot:run   # http://localhost:8080/hello
 ```
 
 Data lives in an in-memory H2 database (Spring Data JPA) that is recreated on every start and
-seeded with an admin user (`rikard.virta@sysdev.se` / `HelloWorld@123`) and three sample listings.
+seeded with three sample listings and, if `ADMIN_PASSWORD` is set, an admin user
+`rikard.virta@sysdev.se` with that password (without it no admin is created).
 
 ## API
 
@@ -40,10 +41,13 @@ curl -si localhost:8080/api/v1/admin/listings -H "Authorization: Bearer $TOKEN" 
 
 | Env var | Default | |
 |---|---|---|
+| `ADMIN_PASSWORD` | none | Password of the seeded admin. Unset = no admin user |
 | `ACCESS_TOKEN_SECRET` | `TEMPORARY_ACCESS_TOKEN_SECRET_CHANGE_ME` | HS256 key for access tokens (15 min), ≥ 32 bytes |
 | `REFRESH_TOKEN_SECRET` | `TEMPORARY_REFRESH_TOKEN_SECRET_CHANGE_ME` | HS256 key for refresh tokens (7 days), ≥ 32 bytes, must differ |
 
-The defaults are public; set real secrets on Cloud Run before the service holds real data.
+The JWT defaults are public and only meant for local runs. On Cloud Run all three come from
+Secret Manager (realestate-infrastructure `environments/prod/secrets.tf`). The prod admin password:
+`gcloud secrets versions access latest --secret realestate-api-admin-password --project realestate-prod-000001`.
 
 Native image as a container (needs Docker, not a local GraalVM):
 

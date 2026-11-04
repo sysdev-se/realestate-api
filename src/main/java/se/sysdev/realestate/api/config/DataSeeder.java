@@ -6,7 +6,10 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.SmartInitializingSingleton;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import se.sysdev.realestate.api.listing.Listing;
 import se.sysdev.realestate.api.listing.ListingRepository;
@@ -18,6 +21,9 @@ import se.sysdev.realestate.api.user.UserRepository;
  * Fills the in-memory database at startup. Skips anything that already exists, so it is
  * safe to keep running once a persistent database is attached.
  * <p>
+ * The admin's password comes from ADMIN_PASSWORD (Secret Manager on Cloud Run). Without
+ * it no admin is created, so the app never runs with a known admin password.
+ * <p>
  * Runs after all beans are created but before the web server opens its port, so no
  * request can arrive before the data exists (an ApplicationRunner runs after the port opens).
  */
@@ -25,19 +31,30 @@ import se.sysdev.realestate.api.user.UserRepository;
 public class DataSeeder implements SmartInitializingSingleton {
 	private static final Logger logger = LoggerFactory.getLogger(DataSeeder.class);
 	static final String ADMIN_EMAIL = "rikard.virta@sysdev.se";
-	private static final String ADMIN_PASSWORD_HASH = "$2a$10$Zva5UozAjCzQjzVXd6duJezoMbnkoiezbLqa6evkibVUdlzE/IZCe";
 	private final UserRepository users;
 	private final ListingRepository listings;
+	private final PasswordEncoder passwordEncoder;
+	private final String adminPassword;
 
-	public DataSeeder(UserRepository users, ListingRepository listings) {
+	public DataSeeder(
+			UserRepository users,
+			ListingRepository listings,
+			PasswordEncoder passwordEncoder,
+			@Value("${app.seed.admin-password:}") String adminPassword) {
 		this.users = users;
 		this.listings = listings;
+		this.passwordEncoder = passwordEncoder;
+		this.adminPassword = adminPassword;
 	}
 
 	@Override
 	public void afterSingletonsInstantiated() {
-		if (!this.users.existsByEmailIgnoreCase(ADMIN_EMAIL)) {
-			this.users.save(new User("Rikard Virta", ADMIN_EMAIL, "0328774484", Role.ADMIN, ADMIN_PASSWORD_HASH));
+		if (!StringUtils.hasText(this.adminPassword)) {
+			logger.warn("ADMIN_PASSWORD is not set; admin user {} not seeded", ADMIN_EMAIL);
+		}
+		else if (!this.users.existsByEmailIgnoreCase(ADMIN_EMAIL)) {
+			String hash = this.passwordEncoder.encode(this.adminPassword);
+			this.users.save(new User("Rikard Virta", ADMIN_EMAIL, "0328774484", Role.ADMIN, hash));
 			logger.info("Seeded admin user {}", ADMIN_EMAIL);
 		}
 		if (this.listings.count() == 0) {

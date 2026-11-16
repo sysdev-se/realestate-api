@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import se.sysdev.realestate.api.image.ImageStore.StoredImage;
 
@@ -28,6 +29,10 @@ public class ImageService {
 		this.store = store;
 	}
 
+	/**
+	 * Stores one JPEG, PNG or WebP image and returns its URL on this API, to put in a listing's
+	 * imgUrls. Call it while handling a request: the URL uses the request's host.
+	 */
 	public String upload(MultipartFile file) {
 		if (file.isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The file is empty");
@@ -38,7 +43,7 @@ public class ImageService {
 					"Only JPEG, PNG and WebP images are supported"));
 		String name = UUID.randomUUID() + "." + type.extension();
 		this.store.put(name, type.contentType(), content);
-		return name;
+		return ServletUriComponentsBuilder.fromCurrentContextPath().path(PATH + name).toUriString();
 	}
 
 	public Optional<StoredImage> find(String name) {

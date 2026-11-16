@@ -7,14 +7,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
@@ -22,10 +26,39 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import se.sysdev.realestate.api.auth.TokenService;
+import se.sysdev.realestate.api.scraper.ScraperProperties;
+import se.sysdev.realestate.api.scraper.ScraperTokenDecoder;
 
 @Configuration
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({ JwtProperties.class, ScraperProperties.class })
 public class SecurityConfig {
+
+	/**
+	 * /api/v1/scraper/** accepts only scrapers (Google ID tokens, see ScraperTokenDecoder). Their
+	 * authentication's name is their source. Checked before the main chain, and admin tokens
+	 * don't work here, nor scraper tokens anywhere else.
+	 */
+	@Bean
+	@Order(1)
+	SecurityFilterChain scraperFilterChain(HttpSecurity http, ScraperTokenDecoder scraperTokenDecoder,
+			ScraperProperties scraperProperties) throws Exception {
+		http.securityMatcher("/api/v1/scraper/**")
+			.csrf((csrf) -> csrf.disable())
+			.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+			.authorizeHttpRequests((requests) -> requests.anyRequest().hasRole("SCRAPER"))
+			.oauth2ResourceServer((resourceServer) -> resourceServer.jwt((jwt) -> jwt
+				.decoder(scraperTokenDecoder::decode)
+				.jwtAuthenticationConverter((token) -> new JwtAuthenticationToken(token,
+						AuthorityUtils.createAuthorityList("ROLE_SCRAPER"),
+						scraperProperties.sourceOf(token.getClaimAsString("email")).orElseThrow()))));
+		return http.build();
+	}
+
+	@Bean
+	ScraperTokenDecoder scraperTokenDecoder(ScraperProperties properties) {
+		return new ScraperTokenDecoder(NimbusJwtDecoder.withJwkSetUri(ScraperTokenDecoder.GOOGLE_JWK_SET_URI).build(),
+				properties);
+	}
 
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

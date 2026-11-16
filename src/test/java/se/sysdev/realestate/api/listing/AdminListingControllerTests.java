@@ -27,8 +27,8 @@ import se.sysdev.realestate.api.user.UserRepository;
 class AdminListingControllerTests {
 
 	private static final String NEW_LISTING = """
-			{"title":"Admin listing","description":"Created in a test","price":1234567.89,
-			 "imgUrls":["https://example.com/1.jpg"]}""";
+			{"type":"RENT","title":"Admin listing","description":"Created in a test","price":25000000,
+			 "bedrooms":2,"bathrooms":1,"areaSqm":70.5,"imgUrls":["https://example.com/1.jpg"]}""";
 
 	@Autowired
 	private MockMvcTester mvc;
@@ -69,7 +69,8 @@ class AdminListingControllerTests {
 		assertThat(result).hasStatus(HttpStatus.CREATED)
 			.bodyJson()
 			.isLenientlyEqualTo("""
-					{"title":"Admin listing","price":1234567.89,"imgUrls":["https://example.com/1.jpg"]}""");
+					{"publishedStatus":"PUBLISHED","type":"RENT","title":"Admin listing","price":25000000,
+					 "bedrooms":2,"bathrooms":1,"areaSqm":70.5,"source":null,"imgUrls":["https://example.com/1.jpg"]}""");
 
 		String id = JsonPath.read(result.getResponse().getContentAsString(), "$.id");
 		assertThat(result).headers().hasValue(HttpHeaders.LOCATION, "/api/v1/consumer/listings/" + id);
@@ -79,7 +80,18 @@ class AdminListingControllerTests {
 	@Test
 	void createWithInvalidBodyIsBadRequest() {
 		assertThat(create("""
-				{"title":"","price":-1,"imgUrls":["not a url"]}""").header(HttpHeaders.AUTHORIZATION,
+				{"type":"RENT","title":"","price":-1,"imgUrls":["not a url"]}""").header(HttpHeaders.AUTHORIZATION,
+				bearer(Role.ADMIN)))
+			.hasStatus(HttpStatus.BAD_REQUEST);
+	}
+
+	@Test
+	void createWithoutTypeOrWithFractionalPriceIsBadRequest() {
+		assertThat(create("""
+				{"title":"No type","price":1000}""").header(HttpHeaders.AUTHORIZATION, bearer(Role.ADMIN)))
+			.hasStatus(HttpStatus.BAD_REQUEST);
+		assertThat(create("""
+				{"type":"SALE","title":"Dong has no cents","price":1000.50}""").header(HttpHeaders.AUTHORIZATION,
 				bearer(Role.ADMIN)))
 			.hasStatus(HttpStatus.BAD_REQUEST);
 	}
@@ -95,7 +107,7 @@ class AdminListingControllerTests {
 			.exchange();
 		String imageUrl = JsonPath.read(uploaded.getResponse().getContentAsString(), "$.url");
 		MvcTestResult created = create("""
-				{"title":"To delete","price":1,"imgUrls":["%s","https://example.com/kept.jpg"]}""".formatted(imageUrl))
+				{"type":"SALE","title":"To delete","price":1,"imgUrls":["%s","https://example.com/kept.jpg"]}""".formatted(imageUrl))
 			.header(HttpHeaders.AUTHORIZATION, bearer(Role.ADMIN))
 			.exchange();
 		assertThat(created).bodyJson()

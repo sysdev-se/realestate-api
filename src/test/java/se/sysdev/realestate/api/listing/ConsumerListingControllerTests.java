@@ -37,14 +37,17 @@ class ConsumerListingControllerTests {
 	@Test
 	void listFiltersByTitleCaseInsensitivelyAndSorts() {
 		String tag = UUID.randomUUID().toString();
-		this.listings.save(new Listing("Cheap " + tag, null, new BigDecimal("100.00"), List.of()));
-		this.listings.save(new Listing("Pricey " + tag.toUpperCase(), null, new BigDecimal("900.00"), List.of()));
+		this.listings.save(new Listing(details("Cheap " + tag, "100"), List.of()));
+		this.listings.save(new Listing(details("Pricey " + tag.toUpperCase(), "900"), List.of()));
+		// Not published, so not listed.
+		this.listings.save(new Listing(details("Pending " + tag, "500"),
+				new ListingSource("test", UUID.randomUUID().toString(), "https://example.com/1"), List.of()));
 
 		assertThat(this.mvc.get().uri("/api/v1/consumer/listings?title={title}&sort=price,desc", tag))
 			.hasStatus(HttpStatus.OK)
 			.bodyJson()
 			.isLenientlyEqualTo("""
-					{"content":[{"price":900.00},{"price":100.00}],"page":{"totalElements":2}}""");
+					{"content":[{"price":900},{"price":100}],"page":{"totalElements":2}}""");
 	}
 
 	@Test
@@ -61,25 +64,37 @@ class ConsumerListingControllerTests {
 
 	@Test
 	void getReturnsListing() {
-		Listing saved = this.listings.save(new Listing("Get me", "Desc", new BigDecimal("42.50"),
+		Listing saved = this.listings.save(new Listing(
+				new ListingDetails(ListingType.RENT, "Get me", "Desc", new BigDecimal("42000000"), 3, 2,
+						new BigDecimal("120.50")),
 				List.of("https://example.com/a.jpg", "https://example.com/b.jpg")));
 
 		assertThat(this.mvc.get().uri("/api/v1/consumer/listings/{id}", saved.getId()))
 			.hasStatus(HttpStatus.OK)
 			.bodyJson()
 			.isLenientlyEqualTo("""
-					{"id":"%s","title":"Get me","description":"Desc","price":42.50,
+					{"id":"%s","publishedStatus":"PUBLISHED","type":"RENT","title":"Get me","description":"Desc",
+					 "price":42000000,"bedrooms":3,"bathrooms":2,"areaSqm":120.50,"source":null,"sourceUrl":null,
 					 "primaryImgUrl":"https://example.com/a.jpg",
 					 "imgUrls":["https://example.com/a.jpg","https://example.com/b.jpg"]}""".formatted(saved.getId()));
 	}
 
 	@Test
 	void primaryImgUrlIsNullWithoutImages() {
-		Listing saved = this.listings.save(new Listing("No images", null, new BigDecimal("1.00"), List.of()));
+		Listing saved = this.listings.save(new Listing(details("No images", "1"), List.of()));
 
 		assertThat(this.mvc.get().uri("/api/v1/consumer/listings/{id}", saved.getId()))
 			.bodyJson()
 			.hasPathSatisfying("$.primaryImgUrl", (url) -> url.assertThat().isNull());
+	}
+
+	@Test
+	void getOfAnUnpublishedListingIsNotFound() {
+		Listing pending = this.listings.save(new Listing(details("Pending", "1"),
+				new ListingSource("test", UUID.randomUUID().toString(), "https://example.com/1"), List.of()));
+
+		assertThat(this.mvc.get().uri("/api/v1/consumer/listings/{id}", pending.getId()))
+			.hasStatus(HttpStatus.NOT_FOUND);
 	}
 
 	@Test
@@ -91,6 +106,10 @@ class ConsumerListingControllerTests {
 	@Test
 	void getWithMalformedIdIsBadRequest() {
 		assertThat(this.mvc.get().uri("/api/v1/consumer/listings/not-a-uuid")).hasStatus(HttpStatus.BAD_REQUEST);
+	}
+
+	private static ListingDetails details(String title, String price) {
+		return new ListingDetails(ListingType.SALE, title, null, new BigDecimal(price), null, null, null);
 	}
 
 }

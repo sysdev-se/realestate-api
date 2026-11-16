@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import se.sysdev.realestate.api.listing.ListingDtos.ListingResponse;
 
+// Published listings only; pending and rejected ones are not found here.
 @RestController
 @RequestMapping("/api/v1/consumer/listings")
 public class ConsumerListingController {
@@ -27,12 +28,12 @@ public class ConsumerListingController {
 	@GetMapping
 	public PagedModel<ListingResponse> list(@RequestParam(required = false) String title,
 			@PageableDefault(size = 20, sort = "title", direction = Sort.Direction.ASC) Pageable pageable) {
-		return new PagedModel<>(this.listingService.find(title, pageable));
+		return new PagedModel<>(this.listingService.findPublished(title, pageable));
 	}
 
 	@GetMapping("/{id}")
 	public ListingResponse get(@PathVariable UUID id) {
-		return this.listingService.get(id);
+		return this.listingService.getPublished(id);
 	}
 
 }

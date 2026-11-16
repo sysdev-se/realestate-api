@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import se.sysdev.realestate.api.image.ImageDtos.ImageResponse;
 
@@ -27,9 +26,8 @@ public class AdminImageController {
 	/** Uploads one image; put the returned URL in a listing's imgUrls. */
 	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	public ResponseEntity<ImageResponse> upload(@RequestParam("file") MultipartFile file) {
-		String name = this.imageService.upload(file);
-		URI url = ServletUriComponentsBuilder.fromCurrentContextPath().path(ImageService.PATH + name).build().toUri();
-		return ResponseEntity.created(url).body(new ImageResponse(url.toString()));
+		String url = this.imageService.upload(file);
+		return ResponseEntity.created(URI.create(url)).body(new ImageResponse(url));
 	}
 
 }
